@@ -1,4 +1,4 @@
-import {
+import streamDeck, {
   action,
   KeyDownEvent,
   SingletonAction,
@@ -101,10 +101,14 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
 
     await ev.action.setTitle("-");
 
-    // TODO: https://analytics.google.com/analytics/web/#/p473333751 をひらく
+    try {
+      const analyticsUrl = `https://analytics.google.com/analytics/web/#/p${settings.propertyId}`;
+      await streamDeck.system.openUrl(analyticsUrl);
+    } catch (error) {
+      console.error("Error opening Google Analytics:", error);
+    }
 
     const activeUsers = await this.updateActiveUsers(settings);
-
     await ev.action.setTitle(activeUsers);
   }
 
