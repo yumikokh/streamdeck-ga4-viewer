@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head lang="en">
+    <title>GA4 Viewer Settings</title>
+    <meta charset="utf-8" />
+    <script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+  </head>
+
+  <body>
+    <!--
+        SDPI コンポーネントを使用した設定画面
+    -->
+    <sdpi-item label="Property ID">
+      <sdpi-textfield
+        setting="propertyId"
+        placeholder="例: 123456789"
+      ></sdpi-textfield>
+    </sdpi-item>
+
+    <sdpi-item label="Client ID">
+      <sdpi-textfield
+        setting="clientId"
+        password="true"
+        placeholder="Google Cloud Platform の Client ID を入力"
+      ></sdpi-textfield>
+    </sdpi-item>
+
+    <sdpi-item label="Client Secret">
+      <sdpi-textfield
+        setting="clientSecret"
+        password="true"
+        placeholder="Google Cloud Platform の Client Secret を入力"
+      ></sdpi-textfield>
+    </sdpi-item>
+
+    <sdpi-item label="Refresh Token">
+      <sdpi-textfield
+        setting="refreshToken"
+        password="true"
+        placeholder="Google Cloud Platform の Refresh Token を入力"
+      ></sdpi-textfield>
+    </sdpi-item>
+  </body>
+</html>
