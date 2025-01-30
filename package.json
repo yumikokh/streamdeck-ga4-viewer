@@ -1,7 +1,8 @@
 {
   "scripts": {
     "build": "rollup -c",
-    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.yumikokh.streamdeck-ga4-viewer\""
+    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.yumikokh.streamdeck-ga4-viewer\"",
+    "restart": "streamdeck restart com.yumikokh.streamdeck-ga4-viewer"
   },
   "type": "module",
   "devDependencies": {
@@ -17,7 +18,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@elgato/streamdeck": "^1.0.0",
-    "@google-analytics/data": "^4.12.0"
-  }
+    "@elgato/streamdeck": "^1.0.0"
+  },
+  "packageManager": "pnpm@9.10.0+sha256.355a8ab8dbb6ad41befbef39bc4fd6b5df85e12761d2724bd01f13e878de4b13"
 }
