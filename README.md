@@ -1,6 +1,8 @@
 # StreamDeck GA4 Viewer
 
-A Stream Deck plugin that allows you to view Google Analytics 4 (GA4) realtime data directly on your Stream Deck device.
+A Stream Deck plugin that allows you to view Google Analytics 4 (GA4) realtime data directly on your Stream Deck device.  
+  
+![GA4 Realtime Viewer](./imgs/ga4-realtime-viewer.png)
 
 ## Features
 
