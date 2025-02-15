@@ -32,46 +32,21 @@ interface TokenResponse {
 export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
   private intervalId: NodeJS.Timeout | null = null;
   private tokenRefreshIntervalId: NodeJS.Timeout | null = null;
-  private currentAccessToken: string = "";
+  private currentAccessToken: string | null = null;
+  private tokenRefreshPromise: Promise<void> | null = null;
 
-  override async onWillAppear(ev: WillAppearEvent<GA4Settings>): Promise<void> {
-    const settings = ev.payload.settings;
-    console.log("settings", settings);
-    // アクセストークンの初期取得
-    await this.refreshAccessToken(ev.payload.settings);
-
-    // アクセストークンの自動更新（50分ごと）
-    this.tokenRefreshIntervalId = setInterval(() => {
-      this.refreshAccessToken(ev.payload.settings);
-    }, 50 * 60 * 1000);
-
-    // 初期表示
-    const activeUsers = await this.updateActiveUsers(ev.payload.settings);
-    await ev.action.setTitle(activeUsers);
-
-    // 10分ごとに更新
-    this.intervalId = setInterval(async () => {
-      const activeUsers = await this.updateActiveUsers(ev.payload.settings);
-      await ev.action.setTitle(activeUsers);
-    }, 10 * 60 * 1000);
-  }
-
-  override onWillDisappear(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-    if (this.tokenRefreshIntervalId) {
-      clearInterval(this.tokenRefreshIntervalId);
-      this.tokenRefreshIntervalId = null;
+  private openAnalyticsUrl(propertyId: string): void {
+    try {
+      const analyticsUrl = `https://analytics.google.com/analytics/web/#/p${propertyId}`;
+      streamDeck.system.openUrl(analyticsUrl);
+    } catch (error) {
+      console.error("Error opening Google Analytics:", error);
     }
   }
 
   private async refreshAccessToken(settings: GA4Settings): Promise<void> {
     try {
-      console.log("clientId", settings.clientId);
-      console.log("clientSecret", settings.clientSecret);
-      console.log("refreshToken", settings.refreshToken);
+      streamDeck.logger.info("=== refreshAccessToken ===", settings);
       const response = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: {
@@ -86,34 +61,33 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
       });
 
       if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status}`);
+        const errorData = (await response.json()) as TokenResponse;
+        streamDeck.logger.error("Token refresh error details:", {
+          status: response.status,
+          error: errorData,
+        });
+
+        throw new Error(
+          `Token refresh failed: ${response.status} - ${JSON.stringify(
+            errorData
+          )}`
+        );
       }
 
       const data = (await response.json()) as TokenResponse;
       this.currentAccessToken = data.access_token;
+      streamDeck.logger.info("Token refresh successful");
     } catch (error) {
-      console.error("Error refreshing token:", error);
+      streamDeck.logger.error("Error in refreshAccessToken:", error);
+      throw error;
     }
-  }
-
-  override async onKeyDown(ev: KeyDownEvent<GA4Settings>): Promise<void> {
-    const { settings } = ev.payload;
-
-    await ev.action.setTitle("-");
-
-    try {
-      const analyticsUrl = `https://analytics.google.com/analytics/web/#/p${settings.propertyId}`;
-      await streamDeck.system.openUrl(analyticsUrl);
-    } catch (error) {
-      console.error("Error opening Google Analytics:", error);
-    }
-
-    const activeUsers = await this.updateActiveUsers(settings);
-    await ev.action.setTitle(activeUsers);
   }
 
   private async updateActiveUsers(settings: GA4Settings): Promise<string> {
     try {
+      if (!this.currentAccessToken) {
+        throw new Error("Access token is null");
+      }
       const response = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${settings.propertyId}:runRealtimeReport`,
         {
@@ -129,9 +103,11 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
       );
 
       if (response.status === 429) {
-        throw new Error("Rate limit exceeded");
+        throw new Error(`Rate limit exceeded: ${response.status}`);
       }
-
+      if (response.status === 401) {
+        throw new Error(`Unauthorized: ${response.status}`);
+      }
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -146,5 +122,57 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
       }
       return "Error";
     }
+  }
+
+  // ----------------------------------- //
+
+  override async onWillAppear(ev: WillAppearEvent<GA4Settings>): Promise<void> {
+    streamDeck.logger.info("=== onWillAppear ===", ev.payload.settings);
+    // トークンリフレッシュを1回だけ実行し、結果を待つ
+    await this.refreshAccessToken(ev.payload.settings);
+
+    // アクセストークンの自動更新（50分ごと）
+    if (!this.tokenRefreshIntervalId) {
+      this.tokenRefreshIntervalId = setInterval(() => {
+        this.refreshAccessToken(ev.payload.settings);
+      }, 50 * 60 * 1000);
+    }
+
+    // 初期表示
+    const activeUsers = await this.updateActiveUsers(ev.payload.settings);
+    await ev.action.setTitle(activeUsers);
+
+    // 10分ごとに更新
+    if (!this.intervalId) {
+      this.intervalId = setInterval(async () => {
+        if (!!this.tokenRefreshPromise) {
+          await this.tokenRefreshPromise;
+        }
+        const activeUsers = await this.updateActiveUsers(ev.payload.settings);
+        await ev.action.setTitle(activeUsers);
+      }, 10 * 60 * 1000);
+    }
+  }
+
+  override onWillDisappear(): void {
+    streamDeck.logger.info("=== onWillDisappear ===");
+
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.tokenRefreshIntervalId) {
+      clearInterval(this.tokenRefreshIntervalId);
+      this.tokenRefreshIntervalId = null;
+    }
+  }
+
+  override async onKeyDown(ev: KeyDownEvent<GA4Settings>): Promise<void> {
+    const { settings } = ev.payload;
+    streamDeck.logger.info("=== onKeyDown ===", settings);
+    await ev.action.setTitle("-");
+    this.openAnalyticsUrl(settings.propertyId);
+    const activeUsers = await this.updateActiveUsers(settings);
+    await ev.action.setTitle(activeUsers);
   }
 }
