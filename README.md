@@ -17,7 +17,8 @@ A Stream Deck plugin that allows you to view Google Analytics 4 (GA4) realtime d
   - Google Analytics Data API enabled
   - Client ID and Client Secret
   - Refresh Token
-    - How to get: <https://developers.google.com/google-ads/api/docs/oauth/playground?hl=en>
+    - How to get: <https://developers.google.com/google-ads/api/docs/oauth/playground?hl=en>  
+    - Note: When you publish in test status, it expires in 1 week
 - GA4 property
 
 ## Installation
