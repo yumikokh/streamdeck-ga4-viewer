@@ -1,5 +1,6 @@
 import streamDeck, {
   action,
+  DidReceiveSettingsEvent,
   KeyDownEvent,
   SingletonAction,
   WillAppearEvent,
@@ -79,7 +80,6 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
       streamDeck.logger.info("Token refresh successful");
     } catch (error) {
       streamDeck.logger.error("Error in refreshAccessToken:", error);
-      throw error;
     }
   }
 
@@ -124,12 +124,23 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
     }
   }
 
+  private async refreshTokenAndUpdateActiveUsers(
+    settings: GA4Settings
+  ): Promise<string> {
+    await this.refreshAccessToken(settings);
+    const activeUsers = await this.updateActiveUsers(settings);
+    return activeUsers;
+  }
+
   // ----------------------------------- //
 
   override async onWillAppear(ev: WillAppearEvent<GA4Settings>): Promise<void> {
     streamDeck.logger.info("=== onWillAppear ===", ev.payload.settings);
-    // トークンリフレッシュを1回だけ実行し、結果を待つ
-    await this.refreshAccessToken(ev.payload.settings);
+
+    const activeUsers = await this.refreshTokenAndUpdateActiveUsers(
+      ev.payload.settings
+    );
+    await ev.action.setTitle(activeUsers);
 
     // アクセストークンの自動更新（50分ごと）
     if (!this.tokenRefreshIntervalId) {
@@ -137,10 +148,6 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
         this.refreshAccessToken(ev.payload.settings);
       }, 50 * 60 * 1000);
     }
-
-    // 初期表示
-    const activeUsers = await this.updateActiveUsers(ev.payload.settings);
-    await ev.action.setTitle(activeUsers);
 
     // 10分ごとに更新
     if (!this.intervalId) {
@@ -173,6 +180,16 @@ export class GA4RealtimeViewer extends SingletonAction<GA4Settings> {
     await ev.action.setTitle("-");
     this.openAnalyticsUrl(settings.propertyId);
     const activeUsers = await this.updateActiveUsers(settings);
+    await ev.action.setTitle(activeUsers);
+  }
+
+  override async onDidReceiveSettings(
+    ev: DidReceiveSettingsEvent<GA4Settings>
+  ): Promise<void> {
+    streamDeck.logger.info("=== onDidReceiveSettings ===", ev.payload.settings);
+    const activeUsers = await this.refreshTokenAndUpdateActiveUsers(
+      ev.payload.settings
+    );
     await ev.action.setTitle(activeUsers);
   }
 }
